@@ -1,0 +1,292 @@
+<style>
+
+.group-tick line {
+    stroke: #000;
+}
+
+.group-tick-label {
+    font: 10px sans-serif;
+}
+
+.ribbons {
+    fill-opacity: 0.67;
+}
+
+.chord-label {
+    font: 10px sans-serif;
+    font-weight: bold;
+}
+
+
+</style>
+
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://cdn.jsdelivr.net/lodash/4.16.4/lodash.js"></script>
+
+Hover mouse on categories for focus.
+<div id="depwheel"></div>
+
+<script>
+
+
+var   dims = ['client', 'cloud_provider'];
+var totals = ['cost'];
+
+var businessData = [
+    { client: 'clientA', cloud_provider: 'Azure',     cost:  1000 },
+    { client: 'clientA', cloud_provider: 'AWS',       cost: 40000 },
+    { client: 'clientA', cloud_provider: 'Google',    cost: 10000 },
+    { client: 'clientA', cloud_provider: 'OpenStack', cost: 15000 },
+
+    { client: 'clientB', cloud_provider: 'Azure',     cost:  5000 },
+    { client: 'clientB', cloud_provider: 'AWS',       cost:  2000 },
+    { client: 'clientB', cloud_provider: 'Google',    cost:  3000 },
+    { client: 'clientB', cloud_provider: 'OpenStack', cost: 20000 },
+
+    { client: 'clientC', cloud_provider: 'Azure',     cost: 50000 },
+    { client: 'clientC', cloud_provider: 'AWS',       cost: 20000 },
+    { client: 'clientC', cloud_provider: 'Google',    cost: 30000 },
+    { client: 'clientC', cloud_provider: 'OpenStack', cost:  2000 },
+];
+
+function prepareChordsData(businessData) {
+    var idx = [];
+    var scoreField = totals[0];
+
+    dims.forEach(function(dim) {
+        var reducerF = function(accum, elem) {
+            var addressedElem = { dim: dim, elem: elem[dim] };
+            var foundIdx = _.findIndex(idx, addressedElem);
+
+            if(foundIdx === -1) {
+                idx.push(addressedElem);
+            }
+        }
+        _.reduce(businessData, reducerF, idx);
+    });
+
+    var matrix = [];
+
+    _.forEach(idx, function(addressedElemX) {
+        var matrixRow = [];
+        _.forEach(idx, function(addressedElemY) {
+            if(dims.indexOf(addressedElemX.dim) === dims.indexOf(addressedElemY.dim)) {
+                matrixRow.push(0);
+            } else {
+                var foundIdx = _.findIndex(businessData, function(elem) {
+                    var eq = true;
+                    eq = eq && (elem[addressedElemX.dim] === addressedElemX.elem);
+                    eq = eq && (elem[addressedElemY.dim] === addressedElemY.elem);
+                    return eq;
+                });
+                if(foundIdx === -1) {
+                    matrixRow.push(0);
+                } else {
+                    matrixRow.push(businessData[foundIdx][scoreField]);
+                }
+            }
+        });
+
+        matrix.push(matrixRow);
+    });
+
+    return {
+        idx: idx,
+        matrix: matrix
+    }
+}
+
+var chordData = prepareChordsData(businessData);
+console.log(chordData);
+
+var width = 700;
+var height = width;
+
+var container = d3.select("#depwheel");
+var outerRadius = Math.min(width, height) * 0.5 - 100;
+var innerRadius = outerRadius - 30;
+
+var formatValue = d3.formatPrefix(",.0", 1e3);
+
+var chord = d3.chord()
+    .padAngle(0.03)
+    .sortSubgroups(d3.descending);
+
+var arc = d3.arc()
+    .innerRadius(innerRadius)
+    .outerRadius(outerRadius);
+
+var ribbon = d3.ribbon()
+    .radius(innerRadius);
+
+var colorVals =
+    [ "#e69373", "#805240", "#e6d5cf", "#bf5830"
+    , "#77d36a", "#488040", "#d2e6cf", "#43bf30"
+    , "#557aaa", "#405c80", "#cfd9e6", "#306ebf"
+    ];
+
+var color = d3.scaleOrdinal()
+    .domain(d3.range(colorVals.length))
+    .range(colorVals);
+
+var svg = container
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+var g = svg
+    .append("g")
+    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+    .datum(chord(chordData.matrix));
+
+// ribbons
+g.append("g")
+    .attr("class", "ribbons")
+    .selectAll("path")
+    .data(function(chords) { return chords; })
+    .enter().append("path")
+    .attr("class", "ribbon")
+    .attr("d", ribbon)
+    .style("fill", function(d) { return color(d.target.index); })
+    .style("stroke", function(d) { return d3.rgb(color(d.target.index)).darker(); })
+    .on("mouseover", fade(0.1))
+    .on("mouseout", fade(1));
+
+// arcs
+var group = g.append("g")
+    .attr("class", "groups")
+    .selectAll("g")
+    .data(function(chords) { return chords.groups; })
+    .enter()
+    .append("g")
+    .attr("class", "group");
+
+group.append("path")
+    .style("fill", function(d) { return color(d.index); })
+    .style("stroke", function(d) { return d3.rgb(color(d.index)).darker(); })
+    .attr("d", arc)
+    .on("mouseover", fade(0.1))
+    .on("mouseout", fade(1));
+    ;
+
+var groupTick = group.selectAll(".group-tick")
+    .data(function(d) { return groupTicks(d, 4000); })
+    .enter().append("g")
+    .attr("class", "group-tick")
+    .attr("transform", function(d) { return "rotate(" + (d.angle * 180 / Math.PI - 90) + ") translate(" + outerRadius + ",0)"; });
+
+groupTick.append("line")
+    .attr("x2", 6);
+
+groupTick
+    .filter(function(d) { return d.value % 5e3 === 0; })
+    .append("text")
+    .attr("x", 8)
+    .attr("dy", ".35em")
+    .attr("class", "group-tick-label")
+    .attr("transform", function(d) { return d.angle > Math.PI ? "rotate(180) translate(-16)" : null; })
+    .style("text-anchor", function(d) { return d.angle > Math.PI ? "end" : null; })
+    .text(function(d) { return formatValue(d.value); });
+
+group.append("svg:text")
+    .each(function(d) { d.angle = (d.startAngle + d.endAngle) / 2; })
+    .attr("dy", ".35em")
+    .attr("class", "chord-label")
+    .attr("text-anchor", function(d) { return d.angle > Math.PI ? "end" : null; })
+    .attr("transform", function(d) {
+        return "rotate(" + (d.angle * 180 / Math.PI - 90) + ")" +
+            "translate(" + (outerRadius + 35) + ")" +
+            (d.angle > Math.PI ? "rotate(180)" : "");
+    })
+    .style("cursor", "pointer")
+    .text(function(d) { return chordData.idx[d.index].elem; })
+    .on("mouseover", fade(0.1))
+    .on("mouseout", fade(1));
+
+
+// Returns an array of tick angles and values for a given group and step.
+function groupTicks(d, step) {
+    var k = (d.endAngle - d.startAngle) / d.value;
+    return d3.range(0, d.value, step).map(function(value) {
+        return {value: value, angle: value * k + d.startAngle};
+    });
+}
+
+
+
+
+
+// Returns an event handler for fading a given chord group.
+function fade(opacity) {
+
+    function fadeGeneric(data, i) {
+        if(_.has(data, 'source') && _.has(data, 'target'))
+            fadeForRibbon(data, i);
+        else
+            fadeForArc(data, i);
+    }
+
+    function fadeForRibbon(ribbon, i) {
+        //debugger;
+
+        // fade unrelated ribbons
+        svg.selectAll(".ribbon")
+            .filter(function(d) {
+                return d.source.index !== ribbon.source.index || d.target.index != ribbon.target.index;
+            })
+            .transition()
+            .style("opacity", opacity);
+
+        // fade arcs, which are not among related
+        svg.selectAll('.group')
+            .filter(function(d) {
+                if(ribbon.source.index === d.index || ribbon.target.index === d.index) return false;
+                else return true;
+            })
+            .transition()
+            .style("opacity", opacity);
+    }
+
+    function fadeForArc(g, i) {
+        //debugger;
+        // fade unrelated ribbons
+        svg.selectAll(".ribbon")
+            .filter(function(d) {
+                return d.source.index != i && d.target.index != i;
+            })
+            .transition()
+            .style("opacity", opacity);
+
+        var groups = [];
+
+        // get related arcs
+        svg.selectAll(".ribbon")
+            .filter(function(d) {
+                if (d.source.index == i) {
+                    groups.push(d.target.index);
+                }
+                if (d.target.index == i) {
+                    groups.push(d.source.index);
+                }
+            });
+
+        groups.push(i);
+
+        var length = groups.length;
+
+        // fade arcs, which are not among related
+        svg.selectAll('.group')
+            .filter(function(d) {
+                for (var i = 0; i < length; i++) {
+                    if(groups[i] == d.index ) return false;
+                }
+                return true;
+            })
+            .transition()
+            .style("opacity", opacity);
+    };
+
+    return fadeGeneric;
+};
+
+</script>
