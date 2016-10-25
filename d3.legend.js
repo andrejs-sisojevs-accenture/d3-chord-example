@@ -24,7 +24,7 @@
             })
 
             items = d3.entries(items).sort(function(a, b) {
-                return a.value.pos - b.value.pos
+                return a.key - b.key;
             });
 
             items.forEach(function(item, i) {
@@ -39,44 +39,6 @@
                     .attr("r", "0.4em")
                     .style("fill", item.value.color);
             });
-
-            // li.selectAll("text")
-            //     .data(items, function(d) {
-            //         return d.key
-            //     })
-            //     .call(function(d) {
-            //         d.enter().append("text")
-            //     })
-            //     .call(function(d) {
-            //         d.exit().remove()
-            //     })
-            //     .attr("y", function(d, i) {
-            //         return i + "em"
-            //     })
-            //     .attr("x", "1em")
-            //     .text(function(d) {;
-            //         return d.key
-            //     })
-
-            // li.selectAll("circle")
-            //     .data(items, function(d) {
-            //         return d.key
-            //     })
-            //     .call(function(d) {
-            //         d.enter().append("circle")
-            //     })
-            //     .call(function(d) {
-            //         d.exit().remove()
-            //     })
-            //     .attr("cy", function(d, i) {
-            //         return i - 0.25 + "em"
-            //     })
-            //     .attr("cx", 0)
-            //     .attr("r", "0.4em")
-            //     .style("fill", function(d) {
-            //         console.log(d.value.color);
-            //         return d.value.color
-            //     })
 
             // Reposition and resize the box
             var lbbox = g.selectAll(".legend-items")._groups[0][0].getBBox()

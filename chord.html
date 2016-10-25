@@ -194,6 +194,11 @@ function prepareChordsData(businessData) {
 var chordData = prepareChordsData(businessData);
 console.log(chordData);
 
+function findInIdx(dim, elem) {
+    return _.findIndex(chordData.idx, function(addressedElem) {
+        return addressedElem.elem === elem && addressedElem.dim === dim;
+    });
+}
 
 var subChartProto = {
     bindto: '#subchart',
@@ -297,7 +302,7 @@ function prepareSubChartColumns(businessData, dim1Elem, dim2Elem, partitionByDim
 }
 
 var subChartInstance = undefined;
-function applySubChart(title, nameOfX, nameOfY, chartColumns, xColumnId, yColumnId, partitionDim) {
+function applySubChart(title, nameOfX, nameOfY, chartColumns, xColumnId, yColumnId, partitionDim, lineColors) {
     if(!_.isUndefined(subChartInstance)) {
         subChartInstance.destroy();
     }
@@ -311,6 +316,7 @@ function applySubChart(title, nameOfX, nameOfY, chartColumns, xColumnId, yColumn
     cfg.data.columns    = chartColumns.c3;
     cfg.data.columnsRaw = chartColumns.raw;
     cfg.data.partitionDim = partitionDim;
+    cfg.data.lineColors   = lineColors;
 
     subChartInstance = drawChart(cfg);
 
@@ -399,7 +405,7 @@ function drawChart(cfg) {
             .data([lineData])
             .attr("class", "subchart-line")
             .attr("data-legend", function(d) { return cfg.data.partitionDim ? d[0][cfg.data.partitionDim] : '' })
-            .attr('stroke', colorVals[i])
+            .attr('stroke', cfg.data.lineColors[i])
             .attr("d", valueline)
             .attr("fill", "none");
     });
@@ -414,7 +420,7 @@ function drawChart(cfg) {
 
 }
 
-var WIDTH = 700;
+var WIDTH = 600;
 var HEIGHT = WIDTH;
 
 var container = d3.select("#depwheel");
@@ -652,16 +658,23 @@ function mouseHandler(isFocus) {
         var sourceElem = chordData.idx[data.source.index];
         var targetElem = chordData.idx[data.target.index];
         var partitionDim = undefined;
+        var lineColors = [colorVals[targetElem.index]];
 
         var subChartColumns = prepareSubChartColumns(businessData, sourceElem, targetElem, undefined, scoreField);
-        applySubChart(sourceElem.elem + ' > ' + targetElem.elem, 'timestamp', scoreField, subChartColumns, 'timestamp', scoreField, partitionDim);
+        applySubChart(sourceElem.elem + ' > ' + targetElem.elem, 'timestamp', scoreField, subChartColumns, 'timestamp', scoreField, partitionDim, lineColors);
     }
     function toggleHistogram_forArc(data, i) {
         var elem = chordData.idx[data.index];
         var partitionDim = otherThanDim(elem.dim);
 
         var subChartColumns = prepareSubChartColumns(businessData, elem, undefined, partitionDim, scoreField);
-        applySubChart(elem.elem, 'timestamp', scoreField, subChartColumns, 'timestamp', scoreField, partitionDim);
+
+        var lineColors = _.map(subChartColumns.raw, function(lineRows) {
+            var categoryIdx = findInIdx(partitionDim, lineRows[0][partitionDim]);
+            return colorVals[categoryIdx];
+        });
+
+        applySubChart(elem.elem, 'timestamp', scoreField, subChartColumns, 'timestamp', scoreField, partitionDim, lineColors);
     }
 
     return mouseHandlerGeneric;
