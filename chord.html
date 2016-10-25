@@ -17,20 +17,88 @@
     font-weight: bold;
 }
 
+div.tooltip {
+    position: absolute;
+    text-align: left;
+    /* width: 60px;
+    height: 28px; */
+    padding: 3px;
+    font: 12px sans-serif;
+    background: rgba(200, 200, 200, 0.6);
+    border: 0px;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.hidden {
+    display: none;
+}
+
+#graphsContainer {
+    display: block;
+    clear: both;
+}
+
+#graphsContainer #depwheel {
+    float: left;
+    padding: 10px;
+    border: 3px solid green;
+}
+
+#graphsContainer #subchart {
+    float: left;
+    padding: 10px;
+    border: 3px solid green;
+}
 
 </style>
 
 <script src="https://d3js.org/d3.v4.js"></script>
 <script src="https://cdn.jsdelivr.net/lodash/4.16.4/lodash.js"></script>
 
-Hover mouse on categories for focus.
-<div id="depwheel"></div>
+<script src="https://code.jquery.com/jquery-2.2.4.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.15.2/moment.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.css" />
+
+Hover mouse on elements for interaction.
+<div id="graphsContainer">
+    <div id="depwheel"></div>
+    <div id="subchart"></div>
+</div>
 
 <script>
 
+// https://jsfiddle.net/az73q6jm/
+// http://jsfiddle.net/az73q6jm/embedded/result/
 
 var   dims = ['client', 'cloud_provider'];
 var totals = ['cost'];
+var scoreField = totals[0];
+
+// generate timeseries
+function distOnTimestamps(businessData, monthsCount) {
+    var newBD = [];
+
+    businessData.forEach(function(row) {
+        var initialMonth = moment("2016/01/01", "YYYY/MM/DD");
+        var initialAvg = row[scoreField] / monthsCount;
+        var curMonth = initialMonth;
+        var curAvg   = initialAvg;
+        for(var i = 0; i < monthsCount; i++) {
+            var newRow = _.cloneDeep(row);
+            newRow[scoreField] = Math.round(curAvg);
+            newRow.timestamp = curMonth;
+            newBD.push(newRow);
+
+            curAvg = curAvg + (Math.random() * 0.2 - 0.1) * initialAvg;
+            curMonth = curMonth.add(1, 'month');
+        }
+    });
+
+    return newBD;
+}
 
 var businessData = [
     { client: 'clientA', cloud_provider: 'Azure',     cost:  1000 },
@@ -49,17 +117,26 @@ var businessData = [
     { client: 'clientC', cloud_provider: 'OpenStack', cost:  2000 },
 ];
 
+businessData = distOnTimestamps(businessData, 12);
+
 function prepareChordsData(businessData) {
     var idx = [];
-    var scoreField = totals[0];
 
     dims.forEach(function(dim) {
         var reducerF = function(accum, elem) {
-            var addressedElem = { dim: dim, elem: elem[dim] };
-            var foundIdx = _.findIndex(idx, addressedElem);
+            var addressedElem = { dim: dim, elem: elem[dim], total: elem[scoreField] };
+            var foundIdx = _.findIndex(idx, function(checkedElem) {
+                var eq = true;
+                eq = eq && (addressedElem.dim  === checkedElem.dim);
+                eq = eq && (addressedElem.elem === checkedElem.elem);
+                return eq;
+            });
 
             if(foundIdx === -1) {
+                addressedElem.index = idx.length;
                 idx.push(addressedElem);
+            } else {
+                idx[foundIdx].total += addressedElem.total;
             }
         }
         _.reduce(businessData, reducerF, idx);
@@ -73,17 +150,15 @@ function prepareChordsData(businessData) {
             if(dims.indexOf(addressedElemX.dim) === dims.indexOf(addressedElemY.dim)) {
                 matrixRow.push(0);
             } else {
-                var foundIdx = _.findIndex(businessData, function(elem) {
-                    var eq = true;
-                    eq = eq && (elem[addressedElemX.dim] === addressedElemX.elem);
-                    eq = eq && (elem[addressedElemY.dim] === addressedElemY.elem);
-                    return eq;
-                });
-                if(foundIdx === -1) {
-                    matrixRow.push(0);
-                } else {
-                    matrixRow.push(businessData[foundIdx][scoreField]);
-                }
+                var relevantBD = _.filter(businessData, function(elem) {
+                        var eq = true;
+                        eq = eq && (elem[addressedElemX.dim] === addressedElemX.elem);
+                        eq = eq && (elem[addressedElemY.dim] === addressedElemY.elem);
+                        return eq;
+                    })
+                function reducer(accum, elem) { return accum + elem[scoreField]; }
+                var sum = _.reduce(relevantBD, reducer, 0);
+                matrixRow.push(sum);
             }
         });
 
@@ -99,6 +174,99 @@ function prepareChordsData(businessData) {
 var chordData = prepareChordsData(businessData);
 console.log(chordData);
 
+
+var subChartProto = {
+    bindto: '#subchart',
+    data: {
+        x: 'Period Month', // to be replaced, when applying this configuration
+        columns: [         // to be replaced, when applying this configuration
+            ['Period Month', '2016/01', '2016/02', '2016/03', '2016/04', '2016/05', '2016/06', '2016/07', '2016/08', '2016/09', '2016/10', '2016/11', '2016/12'],
+            ['AWS', 200, 1000, 14000, 200, 200000, 100000, 90000, 100000, 140000, 20000, 10000, 40000],
+            ['Azure', 300, 1500, 1400, 20000, 10000, 4000, 9000, 1000, 1400, 2000, 1000, 400],
+            ['Google', 3000, 15000, 10000, 50000, 80000, 70000, 9000, 10000, 14000, 12000, 8000, 4000],
+        ],
+        type: 'line'
+    },
+    grid: {
+        x: {
+            show: true
+        },
+        y: {
+            show: true
+        }
+    },
+    axis: {
+        x: {
+            label: {
+                text: 'Name Of X Axis', // to be replaced, when applying this configuration
+            },
+            type: 'category',
+            tick: {
+                rotate: 90,
+                multiline: false
+            }
+        },
+        y: {
+            label: {
+                text: 'Name Of Y Axis', // to be replaced, when applying this configuration
+                position: 'outer-middle',
+            },
+            tick: {
+                format: d3.format('$,'),
+                //or format: function (d) { return '$' + d; }
+
+            }
+        }
+    }
+};
+
+var subChartInstance = undefined;
+function applySubChart(title, nameOfX, nameOfY, chartColumns, xColumnId) {
+    if(!_.isUndefined(subChartInstance)) {
+        subChartInstance.destroy();
+    }
+
+    var cfg = _.cloneDeep(subChartProto);
+
+    cfg.axis.x.label.text = nameOfX;
+    cfg.axis.y.label.text = nameOfY;
+    cfg.data.x = xColumnId;
+    cfg.data.columns = chartColumns;
+
+    subChartInstance = c3.generate(subChartProto);
+
+    d3.select('#' + subChartProto.bindto).append("text")
+        .attr("x", 30)
+        .attr("y", 30)
+        .style("text-anchor", "middle")
+        .text(title);
+}
+function prepareSubChartColumns(businessData, dim1Elem, dim2Elem, scoreColId) {
+    var chartColumns = [];
+    var relevantData = _.filter(businessData, function(row) {
+        var isRelevant = true;
+        isRelevant = isRelevant && row[dim1Elem.dim] === dim1Elem.elem;
+        if(!_.isUndefined(dim2Elem))
+            isRelevant = isRelevant && row[dim2Elem.dim] === dim2Elem.elem;
+        return isRelevant;
+    });
+
+    var xAxis = ['timestamp'];
+    _.forEach(relevantData, function(row) {
+        xAxis.push(row['timestamp']);
+    });
+
+    var dataCol = [scoreColId];
+    _.forEach(relevantData, function(row) {
+        dataCol.push(row[scoreColId]);
+    });
+
+    chartColumns.push(xAxis);
+    chartColumns.push(dataCol);
+
+    return chartColumns;
+}
+
 var width = 700;
 var height = width;
 
@@ -107,6 +275,10 @@ var outerRadius = Math.min(width, height) * 0.5 - 100;
 var innerRadius = outerRadius - 30;
 
 var formatValue = d3.formatPrefix(",.0", 1e3);
+
+var divTooltip = d3.select("body").append("div")
+    .attr("class", "tooltip hidden")
+    ;
 
 var chord = d3.chord()
     .padAngle(0.03)
@@ -147,10 +319,11 @@ g.append("g")
     .enter().append("path")
     .attr("class", "ribbon")
     .attr("d", ribbon)
-    .style("fill", function(d) { return color(d.target.index); })
-    .style("stroke", function(d) { return d3.rgb(color(d.target.index)).darker(); })
-    .on("mouseover", fade(0.1))
-    .on("mouseout", fade(1));
+    .style("fill", function(d) { return color(d.source.index); })
+    .style("stroke", function(d) { return d3.rgb(color(d.source.index)).darker(); })
+    .on("mouseover", mouseHandler(true))
+    .on("mouseout",  mouseHandler(false))
+    ;
 
 // arcs
 var group = g.append("g")
@@ -165,12 +338,22 @@ group.append("path")
     .style("fill", function(d) { return color(d.index); })
     .style("stroke", function(d) { return d3.rgb(color(d.index)).darker(); })
     .attr("d", arc)
-    .on("mouseover", fade(0.1))
-    .on("mouseout", fade(1));
+    .on("mouseover", mouseHandler(true))
+    .on("mouseout",  mouseHandler(false));
     ;
 
+// Returns an array of tick angles and values for a given group and step.
+var TICK_ANGLE = 2 * Math.PI / 120;
+function groupTicks(d) {
+    var k = d.endAngle - d.startAngle;
+    if(k < TICK_ANGLE * 2) return [];
+    else return d3.range(0, k, TICK_ANGLE).map(function(tickDAngle, i) {
+        return {idx: i, value: tickDAngle * d.value / k, angle: d.startAngle + tickDAngle};
+    });
+}
+
 var groupTick = group.selectAll(".group-tick")
-    .data(function(d) { return groupTicks(d, 4000); })
+    .data(groupTicks)
     .enter().append("g")
     .attr("class", "group-tick")
     .attr("transform", function(d) { return "rotate(" + (d.angle * 180 / Math.PI - 90) + ") translate(" + outerRadius + ",0)"; });
@@ -179,7 +362,7 @@ groupTick.append("line")
     .attr("x2", 6);
 
 groupTick
-    .filter(function(d) { return d.value % 5e3 === 0; })
+    .filter(function(d) { return d.idx % 5 === 0; })
     .append("text")
     .attr("x", 8)
     .attr("dy", ".35em")
@@ -200,33 +383,59 @@ group.append("svg:text")
     })
     .style("cursor", "pointer")
     .text(function(d) { return chordData.idx[d.index].elem; })
-    .on("mouseover", fade(0.1))
-    .on("mouseout", fade(1));
-
-
-// Returns an array of tick angles and values for a given group and step.
-function groupTicks(d, step) {
-    var k = (d.endAngle - d.startAngle) / d.value;
-    return d3.range(0, d.value, step).map(function(value) {
-        return {value: value, angle: value * k + d.startAngle};
-    });
-}
-
-
-
+    .on("mouseover", mouseHandler(true))
+    .on("mouseout",  mouseHandler(false));
 
 
 // Returns an event handler for fading a given chord group.
-function fade(opacity) {
+function mouseHandler(isFocus) {
+    var opacityOfUnrelated = isFocus ? 0.1 : 1
 
-    function fadeGeneric(data, i) {
-        if(_.has(data, 'source') && _.has(data, 'target'))
-            fadeForRibbon(data, i);
-        else
-            fadeForArc(data, i);
+    function mouseHandlerGeneric(data, i) {
+        var isRibbon = _.has(data, 'source') && _.has(data, 'target');
+        if(isRibbon) {
+                    tooltip_forRibbon(data, i);
+                       fade_forRibbon(data, i);
+            toggleHistogram_forRibbon(data, i);
+        } else {
+                    tooltip_forArc(data, i);
+                       fade_forArc(data, i);
+            toggleHistogram_forArc(data, i);
+        }
     }
 
-    function fadeForRibbon(ribbon, i) {
+    function tooltip_forRibbon(d, i) {
+        var sourceElem = chordData.idx[d.source.index];
+        var targetElem = chordData.idx[d.target.index];
+        var sourceElemStr = sourceElem.dim + ': ' + sourceElem.elem;
+        var targetElemStr = targetElem.dim + ': ' + targetElem.elem;
+        var      totalStr =     scoreField + ': ' + chordData.matrix[d.source.index][d.target.index];
+        var tooltipHtml = sourceElemStr + '<br/>' + targetElemStr + '<br/>' + totalStr;
+
+        divTooltip.transition()
+            .duration(50)
+            .attr('class', 'tooltip');
+        divTooltip	.html(tooltipHtml)
+            .style("left", (d3.event.pageX)      + "px")
+            .style("top",  (d3.event.pageY - 28) + "px");
+    }
+
+    function tooltip_forArc(d, i) {
+        var  elem    = chordData.idx[d.index];
+        var  elemStr = elem.dim + ': ' + elem.elem;
+        var totalStr =     scoreField + ': ' + elem.total;
+        var tooltipHtml = elemStr + '<br/>' + totalStr;
+
+        divTooltip.transition()
+            .duration(50)
+            .attr('class', 'tooltip');
+        divTooltip	.html(tooltipHtml)
+            .style("left", (d3.event.pageX)      + "px")
+            .style("top",  (d3.event.pageY - 28) + "px");
+    }
+
+
+    function fade_forRibbon(ribbon, i) {
         //debugger;
 
         // fade unrelated ribbons
@@ -235,7 +444,7 @@ function fade(opacity) {
                 return d.source.index !== ribbon.source.index || d.target.index != ribbon.target.index;
             })
             .transition()
-            .style("opacity", opacity);
+            .style("opacity", opacityOfUnrelated);
 
         // fade arcs, which are not among related
         svg.selectAll('.group')
@@ -244,10 +453,10 @@ function fade(opacity) {
                 else return true;
             })
             .transition()
-            .style("opacity", opacity);
+            .style("opacity", opacityOfUnrelated);
     }
 
-    function fadeForArc(g, i) {
+    function fade_forArc(g, i) {
         //debugger;
         // fade unrelated ribbons
         svg.selectAll(".ribbon")
@@ -255,7 +464,7 @@ function fade(opacity) {
                 return d.source.index != i && d.target.index != i;
             })
             .transition()
-            .style("opacity", opacity);
+            .style("opacity", opacityOfUnrelated);
 
         var groups = [];
 
@@ -283,10 +492,24 @@ function fade(opacity) {
                 return true;
             })
             .transition()
-            .style("opacity", opacity);
+            .style("opacity", opacityOfUnrelated);
     };
 
-    return fadeGeneric;
+    function toggleHistogram_forRibbon(data, i) {
+        var sourceElem = chordData.idx[data.source.index];
+        var targetElem = chordData.idx[data.target.index];
+
+        var subChartColumns = prepareSubChartColumns(businessData, sourceElem, targetElem, scoreField);
+        applySubChart(sourceElem.elem + ' > ' + targetElem.elem, 'timestamp', scoreField, subChartColumns, 'timestamp');
+    }
+    function toggleHistogram_forArc(data, i) {
+        var elem = chordData.idx[data.index];
+
+        var subChartColumns = prepareSubChartColumns(businessData, elem, undefined, scoreField);
+        applySubChart(elem.elem, 'timestamp', scoreField, subChartColumns, 'timestamp');
+    }
+
+    return mouseHandlerGeneric;
 };
 
 </script>
