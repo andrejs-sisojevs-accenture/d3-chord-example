@@ -1,0 +1,87 @@
+.subchart-line {
+    fill: none;
+    stroke-width: 2px;
+}
+
+.group-tick line {
+    stroke: #000;
+}
+
+.group-tick-label {
+    font: 10px sans-serif;
+}
+
+.ribbons {
+    fill-opacity: 0.67;
+}
+
+.chord-label {
+    font: 10px sans-serif;
+    font-weight: bold;
+}
+
+div.tooltip {
+    position: absolute;
+    text-align: left;
+    /* width: 60px;
+    height: 28px; */
+    padding: 3px;
+    font: 12px sans-serif;
+    background: rgba(200, 200, 200, 0.6);
+    border: 0px;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+i.chord-lock {
+    position: absolute;
+    opacity: 0.3;
+}
+
+.hint {
+    font: 10px sans-serif;
+    opacity: 0.6;
+    clear: both;
+}
+
+.hidden {
+    display: none;
+}
+
+#graphsContainer {
+    display: block;
+    clear: both;
+}
+
+#graphsContainer #chord {
+    float: left;
+    padding: 10px;
+    /*border: 3px solid green;*/
+}
+
+#graphsContainer #subchart {
+    float: left;
+    padding: 10px;
+    /*border: 3px solid green;*/
+}
+
+#subchart .grid line {
+    stroke: lightgrey;
+    opacity: 0.7;
+}
+
+#subchart .legend {
+    background: rgba(200, 200, 200, 0.6);
+    opacity: 0.7;
+}
+
+#dim-a-dropdown, #dim-b-dropdown, .mrp-container {
+    display: block;
+    float: left;
+    margin-top: 10px;
+    margin-left: 10px;
+}
+
+.mrp-container {
+    margin-top: 11px;
+}
