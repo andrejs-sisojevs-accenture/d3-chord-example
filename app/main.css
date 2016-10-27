@@ -20,7 +20,7 @@
     font-weight: bold;
 }
 
-div.tooltip {
+div.chart-tooltip {
     position: absolute;
     text-align: left;
     /* width: 60px;
@@ -42,6 +42,7 @@ i.chord-lock {
     font: 10px sans-serif;
     opacity: 0.6;
     clear: both;
+    margin-left: 10px;
 }
 
 .hidden {

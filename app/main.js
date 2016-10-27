@@ -1,14 +1,9 @@
+// aws s3 sync . s3://andrey-charts-proto/ --region us-west-1 --exclude ".git/*" --exclude "*.DS_Store*"
+
 $(".dropdown-menu li a").click(function(){
     $(this).parents(".dropdown").find('.btn').html($(this).text());
     $(this).parents(".dropdown").find('.btn').val($(this).data('value'));
 });
-$(function() {
-    // $('input').rangePicker({ minDate:[1,2008] })
-    //     .on('datePicker.done', function(e, result){
-    //         console.log(result);
-    //     });
-});
-
 
 var chordData = prepareChordsData(businessData);
 console.log(chordData);

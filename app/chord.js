@@ -10,15 +10,15 @@ function drawChord(chordConfig) {
     var formatValue = d3.formatPrefix(",.0", 1e3);
 
     var divTooltip = container.append("div")
-        .attr("class", "tooltip hidden")
+        .attr("class", "chart-tooltip hidden")
         ;
 
     var divLock = container.append("i")
         .attr("aria-hidden", "true")
         ;
     function toggleLock(show) {
-        if(show) divLock.attr("class", "fa fa-lock chord-lock");
-        else     divLock.attr("class", "fa fa-lock chord-lock hidden");
+        if(show) divLock.attr("class", "fa fa-lock chord-lock fa-2x");
+        else     divLock.attr("class", "fa fa-lock chord-lock fa-2x hidden");
     }
     toggleLock(false);
 
@@ -125,7 +125,7 @@ function drawChord(chordConfig) {
     var selectedPiece = undefined;
     function toggleMouseSelection(data, i) {
         d3.event.stopPropagation();
-        var isSelecting = _.isUndefined(selectedPiece);                // opposite to "is unselecting (current selection)"
+        var isSelecting = _.isUndefined(selectedPiece); // opposite to "is unselecting (current selection)"
 
         if(isSelecting) {
             toggleLock(true);
@@ -175,7 +175,7 @@ function drawChord(chordConfig) {
             var      totalStr =     scoreField + ': ' + chordData.matrix[d.source.index][d.target.index];
             var tooltipHtml = sourceElemStr + '<br/>' + targetElemStr + '<br/>' + totalStr;
 
-            var clazz = 'tooltip';
+            var clazz = 'chart-tooltip';
             if(!isFocus) clazz += ' hidden';
 
             divTooltip.transition()
@@ -195,7 +195,7 @@ function drawChord(chordConfig) {
             var totalStr =     scoreField + ': ' + elem.total;
             var tooltipHtml = elemStr + '<br/>' + totalStr;
 
-            var clazz = 'tooltip';
+            var clazz = 'chart-tooltip';
             if(!isFocus) clazz += ' hidden';
 
             divTooltip.transition()

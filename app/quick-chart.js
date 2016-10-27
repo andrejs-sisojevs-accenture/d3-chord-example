@@ -144,17 +144,21 @@ function drawChart_(cfg) {
         height = 450;
 
     // set the ranges
-    var x = d3.scaleTime()  .range([0, width]);
-    var y = d3.scaleLinear().range([height, 0]);
+    var xScaler = d3.scaleTime()  .range([0, width]);
+    var yScaler = d3.scaleLinear().range([height, 0]);
+
+    var divTooltip = d3.select(cfg.bindto).append("div")
+        .attr("class", "chart-tooltip hidden")
+        ;
 
     // define the line
     var valueline = d3.line()
-        .curve(d3.curveBasis)
+        .curve(d3.curveCatmullRom)
         .x(function(d) {
-            return x(d[cfg.data.x]);
+            return xScaler(d[cfg.data.x]);
         })
         .y(function(d) {
-            return y(d[cfg.data.y]);
+            return yScaler(d[cfg.data.y]);
         });
 
     // append the svg obgect to the body of the page
@@ -162,18 +166,19 @@ function drawChart_(cfg) {
     // moves the 'group' element to the top left margin
     var svg = d3.select(cfg.bindto).append("svg")
         .attr("width",  width  + margin.left + margin.right)
-        .attr("height", height + margin.top  + margin.bottom)
-        .append("g")
+        .attr("height", height + margin.top  + margin.bottom);
+
+    var g = svg.append("g")
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
     // title
-    d3.select(cfg.bindto + ' svg').append("text")
+    svg.append("text")
         .style("text-anchor", "left")
         .attr("transform", "translate(" + margin.left + ", 30)")
         .text(cfg.title);
 
     // Scale the range of the data
-    x.domain(d3.extent(_.flatten(data), function(d) {
+    xScaler.domain(d3.extent(_.flatten(data), function(d) {
         return d[cfg.data.x];
     }));
 
@@ -181,13 +186,13 @@ function drawChart_(cfg) {
         return d[cfg.data.y];
     });
     maxY = maxY * 1.1;
-    y.domain([0, maxY]);
+    yScaler.domain([0, maxY]);
 
     // Add the X Axis
-    svg.append("g")
+    g.append("g")
         .attr("transform", "translate(0," + height + ")")
         .attr('class', 'grid')
-        .call(d3.axisBottom(x)
+        .call(d3.axisBottom(xScaler)
             .tickFormat(d3.timeFormat("%Y %b"))
             .tickSize(-height)
         )
@@ -201,16 +206,16 @@ function drawChart_(cfg) {
         ;
 
     // Add the Y Axis
-    svg.append("g")
+    g.append("g")
         .attr('class', 'grid')
-        .call(d3.axisLeft(y)
+        .call(d3.axisLeft(yScaler)
             .tickSize(-width)
         );
 
 
     _.forEach(data, function(lineData, i) {
         // Add the valueline path.
-        svg.append("path")
+        g.append("path")
             .data([lineData])
             .attr("class", "subchart-line")
             .attr("data-legend", function(d) { return cfg.data.partitionDim ? d[0][cfg.data.partitionDim] : '' })
@@ -219,17 +224,63 @@ function drawChart_(cfg) {
             .attr("fill", "none");
     });
 
+    _.forEach(data, function(lineData, lineIdx) {
+        _.forEach(lineData, function(row, rowIdx) {
+            g.append("circle")
+                .data([row])
+                .attr("cx", xScaler(row[cfg.data.x]))
+                .attr("cy", yScaler(row[cfg.data.y]))
+                .attr("r", 3)
+                .style("fill", d3.color(cfg.data.lineColors[lineIdx]).darker(0.1))
+                .on("mouseover",  mouseHoverHandler(true))
+                .on("mouseout",   mouseHoverHandler(false))
+                ;
+        });
+    });
+
     if(cfg.data.partitionDim) {
-        svg.append("g")
+        g.append("g")
             .attr("class","legend")
             .attr("transform","translate(250,-50)")
             .style("font-size","12px")
             .call(d3.legend)
     }
 
+    // Returns an event handler for fading a given chord group.
+    function mouseHoverHandler(isFocus) {
+        var opacityOfUnrelated = isFocus ? 0.1 : 1
+
+        function tooltip(d, i) {
+            var partitionStr = cfg.data.partitionDim ? cfg.data.partitionDim + ': ' + d[cfg.data.partitionDim] : ''
+            var xVal = d[cfg.data.x];
+            if(_.isDate(xVal)) xVal = moment(xVal).format('YYYY/MM');
+            var xStr = cfg.data.x + ': ' + xVal;
+            var yStr = cfg.data.y + ': ' + d[cfg.data.y];
+            var tooltipHtml = '';
+            if(partitionStr) tooltipHtml += partitionStr + '<br/>';
+            tooltipHtml += xStr + '<br/>' + yStr;
+
+            var clazz = 'chart-tooltip';
+            if(!isFocus) clazz += ' hidden';
+
+            divTooltip.transition()
+                .duration(50)
+                .attr('class', clazz);
+
+            if(isFocus) {
+                divTooltip	.html(tooltipHtml)
+                    .style("left", (d3.event.pageX)      + "px")
+                    .style("top",  (d3.event.pageY - 28) + "px");
+            }
+        }
+
+        return tooltip;
+    }
+
+
     return {
         destroy: function() {
-            d3.select(cfg.bindto + ' > *').remove();
+            d3.selectAll(cfg.bindto + ' > *').remove();
         }
     };
 
